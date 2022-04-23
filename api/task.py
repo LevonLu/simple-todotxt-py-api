@@ -22,7 +22,7 @@ class Task:
         :param str_raw: (str) 原始字符串
         """
         self.raw = None                 # 原始字符串
-        self.is_completed = False       # 是否dong标记
+        self.is_completed = False       # 是否done标记
         self.priority = None            # 优先级
         self.completion_date = None     # 完成日期
         self.creation_date = None       # 创建日期
@@ -47,9 +47,10 @@ class Task:
         :param raw: (str) 原始字符串
         :return:
         """
-        raw.strip()
-        self._raw_list = raw.split()
-        self.parse_list(self._raw_list)
+        raw = raw.strip()
+        raw_list = raw.split()
+        self._raw_list = raw_list[:]
+        self.parse_list(raw_list)
 
     def parse_list(self, raw_list):
         """
@@ -92,7 +93,7 @@ class Task:
         :return:
         """
         self.empty_description()
-        self._description_list = description_list
+        self._description_list = description_list[:]
         for word in description_list:
             self.description += word + " "
             self.add_tag(word)
@@ -123,6 +124,7 @@ class Task:
         if tag[0] in list(self.tag_sign_reverse.keys()):
             self.tag[self.tag_sign_reverse[tag[0]]].append(tag)
             self._raw_list.append(tag)
+            self._description_list.append(tag)
         '''
         if item == 'project':
             self._raw_list.append(f"+{tag}")
