@@ -21,15 +21,19 @@ class Task:
         初始化task，无参数则新建空task
         :param str_raw: (str) 原始字符串
         """
-        self.raw = None
-        self.is_completed = False
-        self.priority = None
-        self.completion_date = None
-        self.creation_date = None
-        self.main_body = ""
-        self.tag = {"project": [], "context": []}
-        self.metadata = {}
-        self._raw_list = []
+        self.raw = None                 # 原始字符串
+        self.is_completed = False       # 是否dong标记
+        self.priority = None            # 优先级
+        self.completion_date = None     # 完成日期
+        self.creation_date = None       # 创建日期
+        self.description = ""           # task描述
+        self.tag = {"project": [], "context": []}           # project和context标签
+        self.metadata = {}              # 元数据
+        self._raw_list = []             # 原始字符串用空格分割得到的列表
+        self._description_list = []     # task描述部分用空格分割的列表
+
+        self.tag_sign = {"project": '+', "context": '@'}            # tag的类型和描述符对应表
+        self.tag_sign_reverse = {'+': "project", '@': "context"}    # tag的类型和描述符反对应表
 
         if str_raw:
             self.raw = str_raw
@@ -44,7 +48,8 @@ class Task:
         :return:
         """
         raw.strip()
-        self.parse_list(raw.split())
+        self._raw_list = raw.split()
+        self.parse_list(self._raw_list)
 
     def parse_list(self, raw_list):
         """
@@ -78,59 +83,82 @@ class Task:
             del raw_list[0]
 
         # 主体部分的处理
-        self.parse_main_body(raw_list)
+        self.parse_description(raw_list)
 
-    def parse_main_body(self, raw_list):
+    def parse_description(self, description_list):
         """
         处理Description部分
-        :param raw_list: 主体部分的list
+        :param description_list: 主体部分的list
         :return:
         """
-        for word in raw_list:
-            self.main_body += word + " "
+        self.empty_description()
+        self._description_list = description_list
+        for word in description_list:
+            self.description += word + " "
+            self.add_tag(word)
+            self.add_metadata(word)
+            '''
             match_project = PROJECT_RE.match(word)
             match_context = CONTEXT_RE.match(word)
             match_meta = KEYVALUE_RE.match(word)
             if match_context:
-                self.tag["context"].append(word[1:])
+                self.tag["context"].append(word)
             elif match_project:
-                self.tag["project"].append(word[1:])
+                self.tag["project"].append(word)
             elif match_meta:
                 key_value = word.split(':')
                 if key_value[0] not in KEYVALUE_ALLOW:
                     self.metadata[key_value[0]] = key_value[1]
             else:
                 pass
-        self.main_body = self.main_body.strip()
+            '''
+        self.description = self.description.strip()
 
-    def add_tag(self, item, tag):
+    def add_tag(self, tag):
         """
         增加标签，如project、context等
-        :param item: (str) 标签类型
-        :param tag: (str) 标签名
+        :param tag: (str) 标签名 带有+或者@的描述符号
         :return:
         """
-        self.tag[item].append(tag)
+        if tag[0] in list(self.tag_sign_reverse.keys()):
+            self.tag[self.tag_sign_reverse[tag[0]]].append(tag)
+            self._raw_list.append(tag)
+        '''
+        if item == 'project':
+            self._raw_list.append(f"+{tag}")
+        elif item == 'context':
+            self._raw_list.append(f"@{tag}")
+        '''
 
-    def del_tag(self, item, tag):
+    def remove_tag(self, tag):
         """
         删除标签，指定类型和标签名
-        :param item: (str) 标签类型
         :param tag: (str) 标签名
         :return:
         """
-        self.tag[item].remove(tag)
+        if tag[0] in list(self.tag_sign_reverse.keys()):
+            self.tag[self.tag_sign_reverse[tag[0]]].remove(tag)
+        self._raw_list.remove(tag)
+        '''
+        if item == 'project':
+            self._raw_list.remove(f"+{tag}")
+        elif item == 'context':
+            self._raw_list.remove(f"@{tag}")
+        '''
 
-    def modify_tag(self, item, old, new):
+    def replace_tag(self, old, new):
         """
         修改tag
-        :param item: (str) 标签类型
         :param old: (str) 原标签名
         :param new: (str) 新标签名
         :return:
         """
-        self.del_tag(item, old)
-        self.add_tag(item, new)
+        try:
+            index_des = self._description_list.index(old)
+            self._description_list[index_des] = new
+            self.parse_description(self._description_list)
+        except ValueError:
+            pass  # can not find old tag
 
     def set_completed_status(self, status):
         """
@@ -175,18 +203,28 @@ class Task:
         else:
             pass  # not a datetime like"xxxx-xx-xx"
 
-    def modify_main_body(self, main):
+    def replace_description(self, description):
         """
-        修改主体内容，会一起修改project和context
-        :param main:
+        修改主体内容，会同时修改tag
+        :param description:
         :return:
         """
-        self.tag["project"].clear()
-        self.tag["context"].clear()
-        self.metadata.clear()
-        self.main_body = ""
+        self.empty_description()
+        self.parse_description(description.split())
 
-        self.parse_main_body(main.split())
+    def append_description(self, append_words):
+        """
+        description追加内容
+        :param append_words: (str) 追加的内容
+        """
+        for word in append_words.split():
+            self._description_list.append(word)
+            self.description += ' ' + word
+            self.add_tag(word)
+            self.add_metadata(word)
+
+        new_description = self.get_description() + ' ' + append_words
+        self.replace_description(new_description)
 
     def add_metadata(self, metadata):
         """
@@ -202,10 +240,10 @@ class Task:
         else:
             pass  # not a metadata
 
-    def modify_metadata(self, metadata):
+    def replace_metadata(self, metadata):
         self.add_metadata(metadata)
 
-    def del_metadata(self, metadata_key):
+    def remove_metadata(self, metadata_key):
         """
         删除元数据
         :param metadata_key:
@@ -213,11 +251,46 @@ class Task:
         """
         del self.metadata[metadata_key]
 
+    def restruct_raw_list(self):
+        self._raw_list.clear()
+
+        if self.is_completed:
+            self._raw_list.append('x')
+
+        if self.priority:
+            self._raw_list.append(f"({self.priority})")
+
+        if self.completion_date:
+            self._raw_list.append(self.completion_date.strftime(DATE_FMT))
+
+        if self.creation_date:
+            self._raw_list.append(self.creation_date.strftime(DATE_FMT))
+
+        self._raw_list.append(self.description)
+
+    def get_description(self):
+        return ' '.join(self._description_list)
+
+    def empty_description(self):
+        """
+        清空task的description
+        """
+        self.description = ""  # task描述
+        self.tag = {"project": [], "context": []}  # project和context标签
+        self.metadata = {}  # 元数据
+        self._raw_list = []  # 原始字符串用空格分割得到的列表
+        self._description_list = []  # task描述部分用空格分割的列表
+
+    def __str__(self):
+        self.restruct_raw_list()
+        return ' '.join(self._raw_list)
+
     def show(self):
         print(f"Priority: {self.priority}")
         print(f"Completed: {self.is_completed}")
         print(f"Creation: {self.creation_date}")
         print(f"Completion: {self.completion_date}")
-        print(f"Main body: {self.main_body}")
+        print(f"Main body: {self.description}")
         print(f"tag: {self.tag}")
         print(f"meta: {self.metadata}")
+

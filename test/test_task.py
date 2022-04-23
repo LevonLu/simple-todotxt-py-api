@@ -13,8 +13,8 @@ class TaskParse(unittest.TestCase):
         # task.show()
         self.assertTrue(task.is_completed)
         self.assertIs(task.priority, 'A')
-        self.assertIn(task.main_body, "measure space for +chapelShelving @chapel due:2016-05-30")
-        self.assertIs(len(task.main_body), len('measure space for +chapelShelving @chapel due:2016-05-30'))
+        self.assertIn(task.description, "measure space for +chapelShelving @chapel due:2016-05-30")
+        self.assertIs(len(task.description), len('measure space for +chapelShelving @chapel due:2016-05-30'))
         self.assertIn('chapelShelving', task.tag["project"])
         self.assertIn('chapel', task.tag["context"])
 
@@ -23,7 +23,7 @@ class TaskParse(unittest.TestCase):
         # task.show()
         self.assertFalse(task.is_completed)
         self.assertIs(task.priority, 'A')
-        self.assertIn(task.main_body, "read <<Python Crash Course>> @read @code +work author:Eric")
+        self.assertIn(task.description, "read <<Python Crash Course>> @read @code +work author:Eric")
         self.assertIn('work', task.tag["project"])
         self.assertIn('read', task.tag["context"])
         self.assertIn('code', task.tag["context"])
@@ -36,13 +36,13 @@ class TaskParse(unittest.TestCase):
     def test_del_tag(self):
         task = Task("cook")
         task.add_tag("project", "dinner")
-        task.del_tag("project", "dinner")
+        task.remove_tag("project", "dinner")
         self.assertNotIn('dinner', task.tag["project"])
 
     def test_modify_tag(self):
         task = Task("cook")
         task.add_tag("project", "dinner")
-        task.modify_tag("project", "dinner", "breakfast")
+        task.replace_tag("project", "dinner", "breakfast")
         self.assertIn('breakfast', task.tag["project"])
         self.assertNotIn('dinner', task.tag["project"])
 
