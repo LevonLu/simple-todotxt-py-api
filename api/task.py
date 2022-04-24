@@ -11,6 +11,14 @@ DATE_FMT = '%Y-%m-%d'
 KEYVALUE_ALLOW = set(['http', 'https', 'mailto', 'ssh', 'ftp'])
 
 
+def _trans_time(date):
+    match = DATE_RE.match(date)
+    if match:
+        return datetime.datetime.strptime(date, DATE_FMT).date()
+    else:
+        return None  # not a datetime like"xxxx-xx-xx"
+
+
 class Task:
     """
         负责单条task的类
@@ -50,9 +58,9 @@ class Task:
         raw = raw.strip()
         raw_list = raw.split()
         self._raw_list = raw_list[:]
-        self.parse_list(raw_list)
+        self._parse_list(raw_list)
 
-    def parse_list(self, raw_list):
+    def _parse_list(self, raw_list):
         """
         从list构建task
         :param raw_list: 将原始字符串用空格分割得到的list
@@ -79,9 +87,9 @@ class Task:
             del raw_list[0]
 
         # 主体部分的处理
-        self.parse_description(raw_list)
+        self._parse_description(raw_list)
 
-    def parse_description(self, description_list):
+    def _parse_description(self, description_list):
         """
         处理Description部分
         :param description_list: 主体部分的list
@@ -91,9 +99,60 @@ class Task:
         self._description_list = description_list[:]
         for word in description_list:
             self.description += word + " "
-            self.add_tag(word)
-            self.add_metadata(word)
+            if self.add_tag(word):
+                self._description_list.pop()
+            if self.add_metadata(word):
+                self._description_list.pop()
         self.description = self.description.strip()
+
+    def set_completed_status(self, status):
+        """
+        设置task状态，当前仅True和False两种，即完成和未完成
+        :param status: (bool) 完成状态
+        :return:
+        """
+        self.is_completed = status
+
+    def set_priority(self, priority=None):
+        """
+        设置优先级 无参数时为删除优先级
+        :param priority: (str) 优先级[A-Z]
+        :return:
+        """
+        if priority is None:
+            self.priority = priority
+            return True
+        elif priority.isalpha() and len(priority) == 1:
+            self.priority = priority.upper()
+            return True
+        else:
+            return False  # not a upper alpha
+
+    def set_creation_time(self, date_str):
+        """
+        设置创建时间
+        :param date_str: (str) 时间
+        :return:
+        """
+        date = _trans_time(date_str)
+        if date:
+            self.creation_date = date
+            return True
+        else:
+            return False
+
+    def set_completion_time(self, date_str):
+        """
+        设置完成时间
+        :param date_str: (str) 时间
+        :return:
+        """
+        date = _trans_time(date_str)
+        if date:
+            self.completion_date = date
+            return True
+        else:
+            return False
 
     def add_tag(self, tag):
         """
@@ -105,6 +164,9 @@ class Task:
             tag_type = self.tag_sign_reverse[tag[0]]
             self.tag[tag_type].append(tag)
             self._description_list.append(tag)
+            return True
+        else:
+            return False
 
     def remove_tag(self, tag):
         """
@@ -134,77 +196,24 @@ class Task:
         else:
             return False  # tag is not in _description_list or tag list
 
-    def set_completed_status(self, status):
-        """
-        设置task状态，当前仅True和False两种，即完成和未完成
-        :param status: (bool) 完成状态
-        :return:
-        """
-        self.is_completed = status
-
-    def set_priority(self, priority=None):
-        """
-        设置优先级 无参数时为删除优先级
-        :param priority: (str) 优先级[A-Z]
-        :return:
-        """
-        if priority is None:
-            self.priority = priority
-            return True
-        elif priority.isalpha() and len(priority) == 1:
-            self.priority = priority.upper()
-            return True
-        else:
-            return False  # not a upper alpha
-
-    def set_creation_time(self, date):
-        """
-        设置创建时间
-        :param date: (str) 时间
-        :return:
-        """
-        match = DATE_RE.match(date)
-        if match:
-            self.creation_date = datetime.datetime.strptime(date, DATE_FMT).date()
-            return True
-        else:
-            return False  # not a datetime like"xxxx-xx-xx"
-
-    def set_completion_time(self, date):
-        """
-        设置完成时间
-        :param date: (str) 时间
-        :return:
-        """
-        match = DATE_RE.match(date)
-        if match:
-            self.completion_date = datetime.datetime.strptime(date, DATE_FMT).date()
-            return  True
-        else:
-            return False  # not a datetime like"xxxx-xx-xx"
-
     def replace_description(self, description):
         """
         修改主体内容，会同时修改tag
         :param description:
         :return:
         """
-        self.empty_description()
-        self.parse_description(description.split())
+        self.description = ''
+        self.append_description(description)
 
     def append_description(self, append_words):
         """
         description追加内容
         :param append_words: (str) 追加的内容
         """
-        for word in append_words.split():
-            self._description_list.append(word)
-            self.description += ' ' + word
-            self.add_tag(word)
-            self.add_metadata(word)
-
-        new_description = self.get_description() + ' ' + append_words
-        self.replace_description(new_description)
+        append_words = append_words.strip()
+        self.description += ' ' + append_words
+        new_list = self.description.split()
+        self._parse_description(new_list)
 
     def add_metadata(self, metadata):
         """
@@ -217,11 +226,14 @@ class Task:
             key_value = metadata.split(':')
             if key_value[0] not in KEYVALUE_ALLOW:
                 self.metadata[key_value[0]] = key_value[1]
+                self._description_list.append(metadata)
+                return True
+            return False
         else:
-            pass  # not a metadata
+            return False # not a metadata
 
     def replace_metadata(self, metadata):
-        self.add_metadata(metadata)
+        return self.add_metadata(metadata)
 
     def remove_metadata(self, metadata_key):
         """
@@ -229,7 +241,11 @@ class Task:
         :param metadata_key:
         :return:
         """
-        del self.metadata[metadata_key]
+        if metadata_key in self.metadata.keys():
+            del self.metadata[metadata_key]
+            return True
+        else:
+            return False
 
     def restruct_raw_list(self):
         self._raw_list.clear()
@@ -246,7 +262,8 @@ class Task:
         if self.creation_date:
             self._raw_list.append(self.creation_date.strftime(DATE_FMT))
 
-        self._raw_list.append(self.description)
+        for word in self._description_list:
+            self._raw_list.append(word)
 
     def get_description(self):
         return ' '.join(self._description_list)
@@ -270,7 +287,7 @@ class Task:
         print(f"Completed: {self.is_completed}")
         print(f"Creation: {self.creation_date}")
         print(f"Completion: {self.completion_date}")
-        print(f"Main body: {self.description}")
+        print(f"Description: {self.description}")
         print(f"tag: {self.tag}")
         print(f"meta: {self.metadata}")
 

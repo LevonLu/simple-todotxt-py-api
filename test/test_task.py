@@ -19,7 +19,9 @@ class TaskParse(unittest.TestCase):
         self.assertEqual("measure space for +chapelShelving @chapel due:2016-05-30", task.description)
         self.assertIn('+chapelShelving', task.tag["project"])
         self.assertIn('@chapel', task.tag["context"])
-        self.assertEqual('2016-05-30', task.metadata.pop('due'))
+        self.assertEqual('2016-05-30', task.metadata.get('due'))
+        self.assertEqual("x (A) 2016-05-20 2016-04-30 measure space for +chapelShelving @chapel due:2016-05-30",
+                         str(task))
 
     def test_create_from_str_2(self):
         task = Task("(A) 2022-04-23 read <<Python Crash Course>> @read @code +work author:Eric")
@@ -30,7 +32,7 @@ class TaskParse(unittest.TestCase):
         self.assertIn('+work', task.tag["project"])
         self.assertIn('@read', task.tag["context"])
         self.assertIn('@code', task.tag["context"])
-        self.assertEqual('Eric', task.metadata.pop('author'))
+        self.assertEqual('Eric', task.metadata.get('author'))
 
     def test_tag_manipulate(self):
         task = Task("cook noodles")
@@ -51,6 +53,7 @@ class TaskParse(unittest.TestCase):
     def test_set_status(self):
         task = Task("cook")
         self.assertFalse(task.is_completed)
+
         task.set_completed_status(True)
         self.assertTrue(task.is_completed)
 
@@ -61,6 +64,28 @@ class TaskParse(unittest.TestCase):
 
         task.set_priority()
         self.assertNotEqual('A', task.priority)
+
+    def test_description_manipulate(self):
+        task = Task("cook")
+        task.append_description("noodles +dinner")
+        self.assertEqual("cook noodles +dinner", task.description)
+        self.assertIn('+dinner', task.tag["project"])
+
+        task.replace_description("Rice may be better +dinner vegetable:cabbage")
+        self.assertEqual("Rice may be better +dinner vegetable:cabbage", task.description)
+        self.assertIn('+dinner', task.tag["project"])
+        self.assertEqual('cabbage', task.metadata.get('vegetable'))
+
+    def test_meta_manipulate(self):
+        task = Task("read <<Python Crash Course>> @read @code +work")
+        task.add_metadata("author:Eric")
+        self.assertEqual('Eric', task.metadata.get('author'))
+
+        task.replace_metadata("author:EricMatthes")
+        self.assertEqual('EricMatthes', task.metadata.get('author'))
+
+        task.remove_metadata("author")
+        self.assertNotIn('author', task.metadata.keys())
 
 
 if __name__ == '__main__':
