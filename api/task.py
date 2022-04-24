@@ -60,27 +60,22 @@ class Task:
         """
         # 是否完成标记
         if raw_list[0] == 'x':
-            self.is_completed = True
+            self.set_completed_status(True)
             del raw_list[0]
         else:
-            self.is_completed = False
+            self.set_completed_status(False)
 
         # 优先级
-        match_priority = PRIORITY_RE.match(raw_list[0])
-        if match_priority:
-            self.priority = raw_list[0][1]
+        if PRIORITY_RE.match(raw_list[0]):
+            self.set_priority(raw_list[0][1])
             del raw_list[0]
 
-        # 完成日期
-        match_completion_date = DATE_RE.match(raw_list[0])
-        if match_completion_date is not None:
-            self.completion_date = datetime.datetime.strptime(raw_list[0], DATE_FMT).date()
+        # 完成时间
+        if self.set_completion_time(raw_list[0]):
             del raw_list[0]
 
-        # 创建日期
-        match_creation_date = DATE_RE.match(raw_list[0])
-        if match_creation_date is not None:
-            self.creation_date = datetime.datetime.strptime(raw_list[0], DATE_FMT).date()
+        # 创建时间
+        if self.set_creation_time(raw_list[0]):
             del raw_list[0]
 
         # 主体部分的处理
@@ -98,21 +93,6 @@ class Task:
             self.description += word + " "
             self.add_tag(word)
             self.add_metadata(word)
-            '''
-            match_project = PROJECT_RE.match(word)
-            match_context = CONTEXT_RE.match(word)
-            match_meta = KEYVALUE_RE.match(word)
-            if match_context:
-                self.tag["context"].append(word)
-            elif match_project:
-                self.tag["project"].append(word)
-            elif match_meta:
-                key_value = word.split(':')
-                if key_value[0] not in KEYVALUE_ALLOW:
-                    self.metadata[key_value[0]] = key_value[1]
-            else:
-                pass
-            '''
         self.description = self.description.strip()
 
     def add_tag(self, tag):
@@ -122,45 +102,37 @@ class Task:
         :return:
         """
         if tag[0] in list(self.tag_sign_reverse.keys()):
-            self.tag[self.tag_sign_reverse[tag[0]]].append(tag)
-            self._raw_list.append(tag)
+            tag_type = self.tag_sign_reverse[tag[0]]
+            self.tag[tag_type].append(tag)
             self._description_list.append(tag)
-        '''
-        if item == 'project':
-            self._raw_list.append(f"+{tag}")
-        elif item == 'context':
-            self._raw_list.append(f"@{tag}")
-        '''
 
     def remove_tag(self, tag):
         """
         删除标签，指定类型和标签名
-        :param tag: (str) 标签名
+        :param tag: (str) 带标签名 带有+或者@的描述符号
         :return:
         """
         if tag[0] in list(self.tag_sign_reverse.keys()):
-            self.tag[self.tag_sign_reverse[tag[0]]].remove(tag)
-        self._raw_list.remove(tag)
-        '''
-        if item == 'project':
-            self._raw_list.remove(f"+{tag}")
-        elif item == 'context':
-            self._raw_list.remove(f"@{tag}")
-        '''
+            tag_type = self.tag_sign_reverse[tag[0]]
+            self.tag[tag_type].remove(tag)
+        self._description_list.remove(tag)
 
     def replace_tag(self, old, new):
         """
         修改tag
-        :param old: (str) 原标签名
-        :param new: (str) 新标签名
+        :param old: (str) 原标签名 带有+或者@的描述符号
+        :param new: (str) 新标签名 带有+或者@的描述符号
         :return:
         """
-        try:
+        tag_type = self.tag_sign_reverse[old[0]]
+        if old in self._description_list and old in self.tag[tag_type]:
             index_des = self._description_list.index(old)
+            index_tag = self.tag[tag_type].index(old)
             self._description_list[index_des] = new
-            self.parse_description(self._description_list)
-        except ValueError:
-            pass  # can not find old tag
+            self.tag[tag_type][index_tag] = new
+            return True
+        else:
+            return False  # tag is not in _description_list or tag list
 
     def set_completed_status(self, status):
         """
@@ -170,16 +142,20 @@ class Task:
         """
         self.is_completed = status
 
-    def set_priority(self, priority):
+    def set_priority(self, priority=None):
         """
-        设置优先级
+        设置优先级 无参数时为删除优先级
         :param priority: (str) 优先级[A-Z]
         :return:
         """
-        if priority.isalpha() and len(priority) == 1:
+        if priority is None:
+            self.priority = priority
+            return True
+        elif priority.isalpha() and len(priority) == 1:
             self.priority = priority.upper()
+            return True
         else:
-            pass  # not a upper alpha
+            return False  # not a upper alpha
 
     def set_creation_time(self, date):
         """
@@ -190,8 +166,9 @@ class Task:
         match = DATE_RE.match(date)
         if match:
             self.creation_date = datetime.datetime.strptime(date, DATE_FMT).date()
+            return True
         else:
-            pass  # not a datetime like"xxxx-xx-xx"
+            return False  # not a datetime like"xxxx-xx-xx"
 
     def set_completion_time(self, date):
         """
@@ -202,8 +179,9 @@ class Task:
         match = DATE_RE.match(date)
         if match:
             self.completion_date = datetime.datetime.strptime(date, DATE_FMT).date()
+            return  True
         else:
-            pass  # not a datetime like"xxxx-xx-xx"
+            return False  # not a datetime like"xxxx-xx-xx"
 
     def replace_description(self, description):
         """
