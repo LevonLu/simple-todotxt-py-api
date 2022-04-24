@@ -27,7 +27,7 @@ class TaskParse(unittest.TestCase):
         task = Task("(A) 2022-04-23 read <<Python Crash Course>> @read @code +work author:Eric")
         self.assertFalse(task.is_completed)
         self.assertEqual(task.priority, 'A')
-        self.assertEqual(datetime.datetime.strptime('2022-04-23', api.task.DATE_FMT).date(), task.completion_date)
+        self.assertEqual(datetime.datetime.strptime('2022-04-23', api.task.DATE_FMT).date(), task.creation_date)
         self.assertIn(task.description, "read <<Python Crash Course>> @read @code +work author:Eric")
         self.assertIn('+work', task.tag["project"])
         self.assertIn('@read', task.tag["context"])

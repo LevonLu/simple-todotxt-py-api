@@ -79,7 +79,7 @@ class Task:
             del raw_list[0]
 
         # 完成时间
-        if self.set_completion_time(raw_list[0]):
+        if self.is_completed and self.set_completion_time(raw_list[0]):
             del raw_list[0]
 
         # 创建时间
